@@ -3,6 +3,8 @@
 #######FUNCTION THAT CALCULATES THE RS INTEGRAL PROPAGATOR XY
 
 def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength):
+    import numpy as np 
+    
     k = 2* np.pi/wavelength
     
     #number of pixels 
@@ -34,6 +36,8 @@ def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
 
 
 def fraunhofer(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength):
+    import numpy as np 
+    
     k = 2* np.pi/wavelength
     #number of pixels 
     nps = npixscreen
@@ -62,7 +66,7 @@ def fraunhofer(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, w
     U = v * np.fft.fftshift(np.fft.fft2(resized))
     return np.abs(U)**2
     
-def RS_intv2(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0): 
+def RS_int(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0, verbose =False ): 
     """
     returns Escreen (complex electric field at obs screen), Iscreen (intensity at obs screen), iplot (the actual intensity) 
     inputs: 
@@ -75,8 +79,15 @@ def RS_intv2(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wa
     dyscreen = y side of the screen [m]
     wavelength = wavelength of the light [m]
     I0 = intensity of the light at the mask plane [W/m2]
+    
+    ------- 
+    optional 
+    verbose, defaults to False, if True prints 
     """
     import decimal
+    import numpy as np 
+    import matplotlib.pyplot as plt 
+    
     # set the precision to double that of float64.. or whatever you want.
     decimal.setcontext(decimal.Context(prec=34))
 
@@ -146,7 +157,9 @@ def RS_intv2(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wa
     ###### calculate the Rayleigh Sommerfeld integral 
     #From Oshea formulation, eq 2.8
     for isc in np.arange(0,nps-1):
-        print(isc/nps)
+        if verbose == True: 
+            print(isc/nps)
+            
         for jsc in np.arange(0,nps-1): 
             r = np.sqrt((xs[isc,jsc]-xm)**2 + (ys[isc,jsc]-ym)**2 + (zs-zm)**2)
             r2 = r*r
@@ -163,8 +176,10 @@ def RS_intv2(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wa
     
     return Escreen, Iscreen, iplot 
     
+    
 #rudimentary 2D intergal, following https://stackoverflow.com/questions/20668689/integrating-2d-samples-on-a-rectangular-grid-using-scipy 
 def double_Integral(xmin, xmax, ymin, ymax, nx, ny, A):
+    import numpy as np 
 
     dS = ((xmax-xmin)/(nx-1)) * ((ymax-ymin)/(ny-1))
 

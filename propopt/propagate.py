@@ -62,6 +62,7 @@ def fraunhofer(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, w
     U = v * np.fft.fftshift(np.fft.fft2(resized))
     return np.abs(U)**2
     
+#here is a function that calculates the RS_int of the first kind, taking information about mask, distance to screen, and screen information
 def RS_intv2(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0): 
     """
     returns Escreen (complex electric field at obs screen), Iscreen (intensity at obs screen), iplot (the actual intensity) 
@@ -77,7 +78,7 @@ def RS_intv2(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wa
     I0 = intensity of the light at the mask plane [W/m2]
     """
     import decimal
-    # set the precision to double that of float64.. or whatever you want.
+    # set the precision to double that of float64, or higher, to avoid truncation errors 
     decimal.setcontext(decimal.Context(prec=34))
 
     #number of pixels 
@@ -144,13 +145,14 @@ def RS_intv2(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wa
     (xs, ys) = np.meshgrid(xs1,ys1)
 
     ###### calculate the Rayleigh Sommerfeld integral 
+    #following Oshea book
     for isc in np.arange(0,nps-1):
         print(isc/nps)
         for jsc in np.arange(0,nps-1): 
             r = np.sqrt((xs[isc,jsc]-xm)**2 + (ys[isc,jsc]-ym)**2 + (zs-zm)**2)
             r2 = r*r
-            prop1= np.exp(r*1.0j*k)/r2
-            prop2 = zs * (1.0j * k  - unit/r)
+            prop1= np.exp(-r*1.0j*k)/r2
+            prop2 = zs * (1.0j * k  + unit/r)
             propE = E0m * prop1 * prop2
             rEs[isc,jsc] = double_Integral(-dmask/2, dmask/2, -dmask/2, dmask/2, npm*100,npm*100,np.real(propE))/(2*np.pi)
             iEs[isc,jsc] = double_Integral(-dmask/2, dmask/2, -dmask/2, dmask/2, npm*100,npm*100,np.imag(propE))/(2*np.pi)
@@ -162,7 +164,7 @@ def RS_intv2(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wa
     
     return Escreen, Iscreen, iplot 
     
-#rudimentary 2D intergal, following https://stackoverflow.com/questions/20668689/integrating-2d-samples-on-a-rectangular-grid-using-scipy 
+#rudimentary 2D integarl, following https://stackoverflow.com/questions/20668689/integrating-2d-samples-on-a-rectangular-grid-using-scipy 
 def double_Integral(xmin, xmax, ymin, ymax, nx, ny, A):
 
     dS = ((xmax-xmin)/(nx-1)) * ((ymax-ymin)/(ny-1))

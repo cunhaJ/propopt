@@ -144,13 +144,14 @@ def RS_intv2(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wa
     (xs, ys) = np.meshgrid(xs1,ys1)
 
     ###### calculate the Rayleigh Sommerfeld integral 
+    #From Oshea formulation, eq 2.8
     for isc in np.arange(0,nps-1):
         print(isc/nps)
         for jsc in np.arange(0,nps-1): 
             r = np.sqrt((xs[isc,jsc]-xm)**2 + (ys[isc,jsc]-ym)**2 + (zs-zm)**2)
             r2 = r*r
-            prop1= np.exp(r*1.0j*k)/r2
-            prop2 = zs * (1.0j * k  - unit/r)
+            prop1= np.exp(-r*1.0j*k)/r2
+            prop2 = zs * (1.0j * k  + unit/r)
             propE = E0m * prop1 * prop2
             rEs[isc,jsc] = double_Integral(-dmask/2, dmask/2, -dmask/2, dmask/2, npm*100,npm*100,np.real(propE))/(2*np.pi)
             iEs[isc,jsc] = double_Integral(-dmask/2, dmask/2, -dmask/2, dmask/2, npm*100,npm*100,np.imag(propE))/(2*np.pi)

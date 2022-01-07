@@ -1,7 +1,4 @@
 ####propagate.py   
-    
-#######FUNCTION THAT CALCULATES THE RS INTEGRAL PROPAGATOR XY
-
 def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength):
     import numpy as np 
     
@@ -10,11 +7,6 @@ def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     #number of pixels 
     nps = npixscreen 
     npm = npixmask 
-    
-    #if nps <= 2*npm: 
-    #    print("The number of screen is not large enough, I will resize them for you.")
-    #    nps = npm*4 
-    #    print("Rescaled the screen pixels to "+str(nps)+"^2 . The computation will now proceed")
     
     dmask = npixmask * npm 
     
@@ -29,11 +21,9 @@ def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     v1  = np.exp(1.0j*k* (xm*xm + ym*ym)/ (2*z))
     v2  = np.exp(1.0j*k* (xs*xs + ys*ys)/ (2*z)) 
     v3  = np.exp(1.0j*k*z)/ (1.0j*wavelength*z)
-    U = v2 * v3 * np.fft.fftshift(np.fft.fft2(v1*mask))
+    Ef = v2 * v3 * np.fft.fftshift(np.fft.fft2(v1*mask))
     
-    return np.abs(U)**2
-
-
+    return np.abs(Ef)**2
 
 def fraunhofer(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength):
     import numpy as np 
@@ -42,7 +32,6 @@ def fraunhofer(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, w
     #number of pixels 
     nps = npixscreen
     npm = npixmask 
-    
     
     dmask = npixmask * npm  
     
@@ -63,8 +52,8 @@ def fraunhofer(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, w
     #print(resized.shape)
     
     v = np.exp(1.0j*k*z) / (1.0j*wavelength*z)
-    U = v * np.fft.fftshift(np.fft.fft2(resized))
-    return np.abs(U)**2
+    Ef = v * np.fft.fftshift(np.fft.fft2(resized))
+    return np.abs(Ef)**2
     
 def RS_int(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0, verbose =False ): 
     """
@@ -75,8 +64,8 @@ def RS_int(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     npixmask = number of pixels on the side of the mask 
     pixsizemask = size of pixel of the mask [m]
     npixscreen = number of pixels on the side of the screen 
-    dxscreen = x side of the screen [m]
-    dyscreen = y side of the screen [m]
+    dxscreen = max_x of the screen [m], the screen range is [-dxscreen, dxscreen]
+    dyscreen = max_y of the screen [m], the screen range is [-dyscreen, dyscreen]
     wavelength = wavelength of the light [m]
     I0 = intensity of the light at the mask plane [W/m2]
     
@@ -113,7 +102,6 @@ def RS_int(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     ## definitions 
     unit = np.ones((npm,npm), dtype=complex)
     r = np.zeros((npm,npm)) 
-    r3 = np.zeros((npm,npm))
     prop1 = np.zeros((npm,npm))
     prop2 = np.zeros((npm,npm))
     propE = np.zeros((npm,npm))
@@ -177,7 +165,7 @@ def RS_int(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     return Escreen, Iscreen, iplot 
     
     
-#rudimentary 2D intergal, following https://stackoverflow.com/questions/20668689/integrating-2d-samples-on-a-rectangular-grid-using-scipy 
+#rudimentary 2D integral, following https://stackoverflow.com/questions/20668689/integrating-2d-samples-on-a-rectangular-grid-using-scipy 
 def double_Integral(xmin, xmax, ymin, ymax, nx, ny, A):
     import numpy as np 
 
@@ -195,10 +183,34 @@ def double_Integral(xmin, xmax, ymin, ymax, nx, ny, A):
                 + 0.5 * (np.sum(A_u) + np.sum(A_d) + np.sum(A_l) + np.sum(A_r))\
                 + 0.25 * (A_ul + A_ur + A_dl + A_dr))
 
-#######FUNCTION THAT CALCULATES THE RS INTEGRAL PROPAGATOR XZ 
+###These are the theoretical functions as extracted from Goodman book 
 
-#######FUNCTION THAT CALCULATES THE RS CONV. PROPAGATOR CO
+def circ_fraun(aperture_rad, rcoord, zdist, wavelength): 
+    #circular aperture function 4.4.2
+    import numpy as np
+    from scipy.special import jv 
+    ###use like jv(v,z) where v is the order and z the dist in z 
+    
+    area = np.pi * aperture_rad**2
+    
+    k = 2* np.pi/wavelength
+    argument = k*aperture_rad*rcoord/zdist
+    
+    #function 4-31
+    intensity = (area/(wavelength * zdist))**2 * (2*jv(1, argument)/argument)**2
+    
+    return intensity 
+    
+    
+def rect_fraun(sizex, sizey, xcoord, ycoord, zdist, wavelength): 
+    from scipy.special import sinc 
+    #sinc uses sin(pi*x)/(pi*x) with x as the argument 
+    
+    area = 4*sizex*sizey
+    
+    k= 2* np.pi/wavelength 
+    
+    intensity = (area/(wavelength*zdist))**2 * sinc(2*sizex*xcoord/(wavelength*zdist))**2 * sinc(2*sizey * ycoord/(wavelength* zdist))
+    
+    return intensity 
 
-#######FUNCTION THAT CALCULATES THE FRESNEL APPROX.INTEGRAL 
-
-#######FUNCTION THAT CALCULATES THE FRAUNHOFER APPROX. INTEGRAL

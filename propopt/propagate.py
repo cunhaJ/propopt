@@ -235,7 +235,10 @@ def rect_fraun(sizex, sizey, xcoord, ycoord, zdist, wavelength):
 
 #######FUNCTION THAT CALCULATES THE RS INTEGRAL 
 #here is a function that calculates the RS_int of the first kind, taking information about mask, distance to screen, and screen information
-def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0): 
+
+#######FUNCTION THAT CALCULATES THE RS INTEGRAL 
+#here is a function that calculates the RS_int of the first kind, taking information about mask, distance to screen, and screen information
+def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0, verbose=False): 
     """
     returns Escreen (complex electric field at obs screen), Iscreen (intensity at obs screen), iplot (the actual intensity) 
     inputs: 
@@ -258,9 +261,9 @@ def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscr
     npm = npixmask 
     
     if nps <= 2*npm: 
-        print("The number of screen is not large enough, I will resize them for you.")
+        print("The number of screen pix is not large enough, I will resize them for you.")
         nps = npm*4 
-        print("Rescaled the screen pixels to "+str(nps)+"^2 . The computation will now proceed")
+        print("Rescaled the screen pixels to "+str(nps)+" . The computation will now proceed")
     
     #size of mask 
     dmask = pixsizemask * npm
@@ -328,17 +331,19 @@ def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscr
     print (inten)
 
     ###### calculate the Rayleigh Sommerfeld integral 
-    ### ATTENTION TO CHECK WITH GOODMAN BOOK IF CORRECTLY IMPLEMENTED 
     
     for iz, zsd in enumerate(zdistarray): 
+        print(zsd)
+        print(iz)
         ##### calculate the Rayleigh Sommerfeld integral 
         #From Oshea formulation, eq 2.8
         for isc in np.arange(0,nps-1):
             if verbose == True: 
                 print(isc/nps)
                 
-            for jsc in np.arange(0,nps-1): 
-                r = np.sqrt((xs[isc,jsc]-xm)**2 + (ys[isc,jsc]-ym)**2 + (zs-zm)**2)
+            for jsc in np.arange(0,nps-1):
+                r = np.sqrt((xs[isc,jsc]-xm)**2 + (ys[isc,jsc]-ym)**2 + (zsd-zm)**2)
+                #print(r)
                 r2 = r*r
                 prop1= np.exp(-r*1.0j*k)/r2
                 prop2 = zs * (1.0j * k  + unit/r)
@@ -355,11 +360,8 @@ def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscr
         inten[:,iz] = iplot[:,midpoint]
         #inten[isc,iz] = iplot
         
-        print(inten[:,iz])
+        #print(inten[:,iz])
         
         iplotmax = np.max(iplot)
     
     return Escreen, Iscreen, inten
-
-###TRIAL TO OBTAIN THE XZ PLAN -> in principle only need to change the r for the distance plane.... 
-####TO CHECK 

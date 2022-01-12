@@ -1,4 +1,6 @@
 ####propagate.py   
+
+
 def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength):
     import numpy as np
     import scipy.fftpack as sfft  
@@ -9,12 +11,16 @@ def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     nps = npixscreen 
     npm = npixmask 
     
-    dmask = npixmask * npm 
+    ##calculate the resolution  
+    res = wavelength *z/ (pixsizemask *npm)
+    
+    #dmask = npixmask * npm 
+    dmask = 0.5 * res * npm
     
     xm1 = np.linspace(-dmask/2, dmask/2, npm)
     ym1 = np.linspace(-dmask/2, dmask/2, npm)
     (xm, ym) = np.meshgrid(xm1, ym1)
-     
+
     xs1 = np.linspace(-dxscreen, dxscreen, nps)
     ys1 = np.linspace(-dyscreen, dyscreen, nps)
     (xs, ys) = np.meshgrid(xs1, ys1)
@@ -23,9 +29,12 @@ def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     v1  = np.exp(1.0j*k* (xm*xm + ym*ym)/ (2*z))
     v2  = np.exp(1.0j*k* (xs*xs + ys*ys)/ (2*z)) 
     v3  = np.exp(1.0j*k*z)/ (1.0j*wavelength*z)
-    Ef = v2 * v3 * sfft.fftshift(sfft.fft2(v1*mask))
+    intarg = v1 * mask
+    Ef = v2 * v3 * sfft.fftshift(sfft.fft2(sfft.ifftshift(intarg)))
+
     
-    return np.abs(Ef)**2
+    return abs(Ef)**2
+    
 
 def fraunhofer(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength):
     import numpy as np
@@ -228,17 +237,33 @@ def rect_fraun(sizex, sizey, xcoord, ycoord, zdist, wavelength):
     intensity = (area/(wavelength*zdist))**2 * sinc(2*sizex*xcoord/(wavelength*zdist))**2 * sinc(2*sizey * ycoord/(wavelength* zdist))
     
     return intensity 
+    
+###This function is the axial intensity for a circular aperture following 1992 Sheppard paper, exp (28) 
+def circ_zz(aperture_rad, zdist, wavelength):
+    k = 2*np.pi /wavelength 
+    
+    izz1 = (1 + np.sqrt(1 + aperture_rad**2 /zdist**2))
+    izz2 = 1 + aperture_rad**2/(2*zdist**2)
+    izz3 = (k * aperture_rad**2/(2 *zdist))/(np.sqrt(1+aperture_rad**2/zdist**2)+1)
+    itot = 0.25*(izz1/izz2) * np.sin(izz3)**2
+    
+    return itot
 
-
-####Experimenting for the XZ Rayleigh-Sommerfeld 
+###This function is the axial intensity for a circular aperture following 1992 Sheppard paper, exp (28) 
+def circ_zz24(aperture_rad, zdist, wavelength):
+    k = 2*np.pi /wavelength 
+    
+    izz1 = 1/(1+aperture_rad**2/zdist**2)
+    izz2 = 2/np.sqrt(1+aperture_rad**2/zdist**2)
+    izz3 = (k * aperture_rad**2/(zdist)) /(np.sqrt(1+aperture_rad**2/zdist**2)+1)
+    itot = 0.25*(1+izz1-izz2)* np.cos(izz3)
+    
+    return itot
 
 
 #######FUNCTION THAT CALCULATES THE RS INTEGRAL 
 #here is a function that calculates the RS_int of the first kind, taking information about mask, distance to screen, and screen information
-
-#######FUNCTION THAT CALCULATES THE RS INTEGRAL 
-#here is a function that calculates the RS_int of the first kind, taking information about mask, distance to screen, and screen information
-def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0, verbose=False): 
+def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0, verbose=False, logscale = False): 
     """
     returns Escreen (complex electric field at obs screen), Iscreen (intensity at obs screen), iplot (the actual intensity) 
     inputs: 
@@ -260,8 +285,10 @@ def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscr
     nps = npixscreen 
     npm = npixmask 
     
+    
+    
     if nps <= 2*npm: 
-        print("The number of screen pix is not large enough, I will resize them for you.")
+        print("The number of screen is not large enough, I will resize them for you.")
         nps = npm*4 
         print("Rescaled the screen pixels to "+str(nps)+" . The computation will now proceed")
     
@@ -269,8 +296,8 @@ def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscr
     dmask = pixsizemask * npm
     
     #physical constants 
-    c_const = 3e8 
-    eps0 = 8.854189e-12 
+    c_const = 3e8 #m/s
+    eps0 = 8.85e-12  #F/m
     n = 1 #refractive index of medium  
 
     k = 2* np.pi/wavelength
@@ -326,27 +353,28 @@ def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscr
     #array with the distance in z until the distance zs given as argument 
     zdistarray = np.linspace(0,zs,nzds)
     
+    if logscale ==True: 
+        zdistarray = np.logspace(np.log(1e-6),np.log(zs),nzds, base=np.e)
+    
     inten = np.zeros((len(xs1), len(zdistarray)))
     
     print (inten)
 
     ###### calculate the Rayleigh Sommerfeld integral 
+    ### ATTENTION TO CHECK WITH GOODMAN BOOK IF CORRECTLY IMPLEMENTED 
     
     for iz, zsd in enumerate(zdistarray): 
-        print(zsd)
-        print(iz)
         ##### calculate the Rayleigh Sommerfeld integral 
         #From Oshea formulation, eq 2.8
         for isc in np.arange(0,nps-1):
             if verbose == True: 
                 print(isc/nps)
                 
-            for jsc in np.arange(0,nps-1):
+            for jsc in np.arange(0,nps-1): 
                 r = np.sqrt((xs[isc,jsc]-xm)**2 + (ys[isc,jsc]-ym)**2 + (zsd-zm)**2)
-                #print(r)
                 r2 = r*r
                 prop1= np.exp(-r*1.0j*k)/r2
-                prop2 = zs * (1.0j * k  + unit/r)
+                prop2 = zsd * (1.0j * k  + unit/r)
                 propE = E0m * prop1 * prop2
                 #here npm*400, is a guess for the number of points to calc the int
                 rEs[isc,jsc] = double_Integral(-dmask/2, dmask/2, -dmask/2, dmask/2, npm*400,npm*400,np.real(propE))/(2*np.pi)
@@ -360,8 +388,24 @@ def RS_int_XZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscr
         inten[:,iz] = iplot[:,midpoint]
         #inten[isc,iz] = iplot
         
-        #print(inten[:,iz])
+        print(inten[:,iz])
         
         iplotmax = np.max(iplot)
     
     return Escreen, Iscreen, inten
+    
+    
+def Fresnel_num(width, wavelength, zdist):
+    """
+    Following the Goodman pag 85
+    width is half the size of the aperture
+    
+    The Fresnel approximation is justified for large fresnel numbers 
+    """
+    NF = width**2 / (wavelength * zdist)
+    return NF 
+    
+def Fraunhofer_criterion(aperturesiz, wavelength): 
+    zfraun = 2 * aperturesiz**2 / wavelength 
+    
+    return zfraun 

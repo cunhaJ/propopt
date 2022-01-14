@@ -1,7 +1,21 @@
 ####propagate.py   
 
-
 def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength):
+    """
+    Calculate Fresnel approximation, following Goodman exp 4-17 
+    inputs: 
+    z = distance to the observation plane in m
+    mask = 2D map (x-y plane) npixel vs npixel mask 
+    npixmask = number of pixels of the mask 
+    pixsizemask = size of the pixel at the mask in m
+    npixscreen = size of the pixel at the screen 
+    dxscreen = x-size of the screen  in m 
+    dyscreen = y-size of the screen   in m
+    wavelength = wavelength in m 
+    
+    returns 2D map (x-y plane) with abs of Electric field at distance z
+    
+    """
     import numpy as np
     import scipy.fftpack as sfft  
     
@@ -11,16 +25,15 @@ def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     nps = npixscreen 
     npm = npixmask 
     
-    ##calculate the resolution  
+    ##calculate the resolution  -
     res = wavelength *z/ (pixsizemask *npm)
     
-    #dmask = npixmask * npm 
-    dmask = 0.5 * res * npm
+    dmask =   res * npm
     
     xm1 = np.linspace(-dmask/2, dmask/2, npm)
     ym1 = np.linspace(-dmask/2, dmask/2, npm)
     (xm, ym) = np.meshgrid(xm1, ym1)
-
+    
     xs1 = np.linspace(-dxscreen, dxscreen, nps)
     ys1 = np.linspace(-dyscreen, dyscreen, nps)
     (xs, ys) = np.meshgrid(xs1, ys1)
@@ -30,13 +43,28 @@ def fresnel(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     v2  = np.exp(1.0j*k* (xs*xs + ys*ys)/ (2*z)) 
     v3  = np.exp(1.0j*k*z)/ (1.0j*wavelength*z)
     intarg = v1 * mask
-    Ef = v2 * v3 * sfft.fftshift(sfft.fft2(sfft.ifftshift(intarg)))
+    Ef = sfft.fftshift(sfft.fft2(sfft.ifftshift(intarg)))
 
-    
-    return abs(Ef)**2
+    #consider changing this into complex field 
+    return abs(Ef)
     
 
 def fraunhofer(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength):
+    """
+    Calculate Fraunhofer approximation, following Goodman exp 4-25
+    inputs: 
+    z = distance to the observation plane in m
+    mask = 2D map (x-y plane) npixel vs npixel mask 
+    npixmask = number of pixels of the mask 
+    pixsizemask = size of the pixel at the mask in m
+    npixscreen = size of the pixel at the screen 
+    dxscreen = x-size of the screen  in m 
+    dyscreen = y-size of the screen   in m
+    wavelength = wavelength in m 
+    
+    returns 2D map (x-y plane) with abs of Electric field at distance z 
+    
+    """
     import numpy as np
     import scipy.fftpack as sfft    
     
@@ -76,10 +104,12 @@ def fraunhofer(z, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, w
     
     #Ef2 = cv2.resize(Ef,(int(num),int(num)), interpolation = cv2.INTER_AREA)
     
-    return np.abs(Ef)**2
+    return abs(Ef)
     
+
 def RS_int(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0, verbose =False ): 
     """
+    Calculates the RS_int in the  of the first kind, taking information about mask, distance to screen, and screen information
     returns Escreen (complex electric field at obs screen), Iscreen (intensity at obs screen), iplot (the actual intensity) 
     inputs: 
     zs = distance to screen [m]
@@ -189,85 +219,14 @@ def RS_int(zs, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wave
     return Escreen, Iscreen, iplot 
     
     
-#rudimentary 2D integral, following https://stackoverflow.com/questions/20668689/integrating-2d-samples-on-a-rectangular-grid-using-scipy 
-def double_Integral(xmin, xmax, ymin, ymax, nx, ny, A):
-    import numpy as np 
-
-    dS = ((xmax-xmin)/(nx-1)) * ((ymax-ymin)/(ny-1))
-
-    A_Internal = A[1:-1, 1:-1]
-
-    # sides: up, down, left, right
-    (A_u, A_d, A_l, A_r) = (A[0, 1:-1], A[-1, 1:-1], A[1:-1, 0], A[1:-1, -1])
-
-    # corners
-    (A_ul, A_ur, A_dl, A_dr) = (A[0, 0], A[0, -1], A[-1, 0], A[-1, -1])
-
-    return dS * (np.sum(A_Internal)\
-                + 0.5 * (np.sum(A_u) + np.sum(A_d) + np.sum(A_l) + np.sum(A_r))\
-                + 0.25 * (A_ul + A_ur + A_dl + A_dr))
-
-###These are the theoretical functions as extracted from Goodman book 
-
-def circ_fraun(aperture_rad, rcoord, zdist, wavelength): 
-    #circular aperture function 4.4.2
-    import numpy as np
-    from scipy.special import jv 
-    ###use like jv(v,z) where v is the order and z the dist in z 
-    
-    area = np.pi * aperture_rad**2
-    
-    k = 2* np.pi/wavelength
-    argument = k*aperture_rad*rcoord/zdist
-    
-    #function 4-31
-    intensity = (area/(wavelength * zdist))**2 * (2*jv(1, argument)/argument)**2
-    
-    return intensity 
-    
-    
-def rect_fraun(sizex, sizey, xcoord, ycoord, zdist, wavelength): 
-    from scipy.special import sinc 
-    #sinc uses sin(pi*x)/(pi*x) with x as the argument 
-    
-    area = 4*sizex*sizey
-    
-    k= 2* np.pi/wavelength 
-    
-    intensity = (area/(wavelength*zdist))**2 * sinc(2*sizex*xcoord/(wavelength*zdist))**2 * sinc(2*sizey * ycoord/(wavelength* zdist))
-    
-    return intensity 
-    
-###This function is the axial intensity for a circular aperture following 1992 Sheppard paper, exp (28) 
-def circ_zz(aperture_rad, zdist, wavelength):
-    k = 2*np.pi /wavelength 
-    
-    izz1 = (1 + np.sqrt(1 + aperture_rad**2 /zdist**2))
-    izz2 = 1 + aperture_rad**2/(2*zdist**2)
-    izz3 = (k * aperture_rad**2/(2 *zdist))/(np.sqrt(1+aperture_rad**2/zdist**2)+1)
-    itot = 0.25*(izz1/izz2) * np.sin(izz3)**2
-    
-    return itot
-
-###This function is the axial intensity for a circular aperture following 1992 Sheppard paper, exp (28) 
-def circ_zz24(aperture_rad, zdist, wavelength):
-    k = 2*np.pi /wavelength 
-    
-    izz1 = 1/(1+aperture_rad**2/zdist**2)
-    izz2 = 2/np.sqrt(1+aperture_rad**2/zdist**2)
-    izz3 = (k * aperture_rad**2/(zdist)) /(np.sqrt(1+aperture_rad**2/zdist**2)+1)
-    itot = 0.25*(1+izz1-izz2)* np.cos(izz3)
-    
-    return itot
-
-
-#######FUNCTION THAT CALCULATES THE RS INTEGRAL 
-#here is a function that calculates the RS_int of the first kind, taking information about mask, distance to screen, and screen information
-def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0, verbose=False, logscale = False): 
+###Second version is the one to be used 
+def RS_int_XZ2(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dyscreen, wavelength, I0, verbose=False, logscale = False): 
     """
+    Calculates the RS_int in the  of the first kind, taking information about mask, distance to screen, and screen information
     returns Escreen (complex electric field at obs screen), Iscreen (intensity at obs screen), iplot (the actual intensity) 
     inputs: 
     zs = distance to screen [m]
+    nzds = number of observation planes along z 
     mask = image of the mask (normalized to [0,1]) - in principle could be grayscale between 0 and 1 
     npixmask = number of pixels on the side of the mask 
     pixsizemask = size of pixel of the mask [m]
@@ -276,6 +235,8 @@ def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dys
     dyscreen = y side of the screen [m]
     wavelength = wavelength of the light [m]
     I0 = intensity of the light at the mask plane [W/m2]
+    
+    logscale makes the calculation of the points in a log scale 
     """
     import decimal
     # set the precision to double that of float64
@@ -284,8 +245,6 @@ def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dys
     #number of pixels 
     nps = npixscreen 
     npm = npixmask 
-    
-    
     
     if nps <= 2*npm: 
         print("The number of screen is not large enough, I will resize them for you.")
@@ -296,8 +255,8 @@ def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dys
     dmask = pixsizemask * npm
     
     #physical constants 
-    c_const = 3e8 #m/s
-    eps0 = 8.85e-12  #F/m
+    c_const = 3e8 
+    eps0 = 8.854189e-12 
     n = 1 #refractive index of medium  
 
     k = 2* np.pi/wavelength
@@ -327,7 +286,8 @@ def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dys
     ##Electric field calc from intensity
     E0 = np.sqrt(2*I0/(c_const*n*eps0))
     
-    #definition of the electric field at the mask 
+    #definition of the electric field at the mask
+    ##Atention here is being done the amplitude only... what about phase
     E0m = E0 * mask
 
     fig=plt.figure()
@@ -335,7 +295,7 @@ def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dys
     plt.title("Efield at mask")
 
     #intensity at the mask
-    i0m = (c_const*n*eps0/2)*E0m*E0m 
+    i0m = (c_const*n*eps0/2)*E0m**2
     I0m = double_Integral(-dmask/2, dmask/2, -dmask/2, dmask/2, npm,npm, i0m)
 
     print(I0m)
@@ -361,8 +321,6 @@ def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dys
     print (inten)
 
     ###### calculate the Rayleigh Sommerfeld integral 
-    ### ATTENTION TO CHECK WITH GOODMAN BOOK IF CORRECTLY IMPLEMENTED 
-    
     for iz, zsd in enumerate(zdistarray): 
         ##### calculate the Rayleigh Sommerfeld integral 
         #From Oshea formulation, eq 2.8
@@ -385,7 +343,7 @@ def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dys
         iplot = 10*Iscreen**0.3
         #print(iplot)
         midpoint = int(nps/2)-1
-        inten[:,iz] = iplot[:,midpoint]
+        inten[:,iz] = iplot[:,midpoint]#This is a line cut in y  for each iteration
         #inten[isc,iz] = iplot
         
         print(inten[:,iz])
@@ -393,19 +351,157 @@ def RS_int_XXZZ(zs, nzds, mask, npixmask, pixsizemask, npixscreen, dxscreen, dys
         iplotmax = np.max(iplot)
     
     return Escreen, Iscreen, inten
+   
+   
+def double_Integral(xmin, xmax, ymin, ymax, nx, ny, A):
+    """
+    #rudimentary 2D integral, following https://stackoverflow.com/questions/20668689/integrating-2d-samples-on-a-rectangular-grid-using-scipy 
+    """
+    import numpy as np 
+
+    dS = ((xmax-xmin)/(nx-1)) * ((ymax-ymin)/(ny-1))
+
+    A_Internal = A[1:-1, 1:-1]
+
+    # sides: up, down, left, right
+    (A_u, A_d, A_l, A_r) = (A[0, 1:-1], A[-1, 1:-1], A[1:-1, 0], A[1:-1, -1])
+
+    # corners
+    (A_ul, A_ur, A_dl, A_dr) = (A[0, 0], A[0, -1], A[-1, 0], A[-1, -1])
+
+    return dS * (np.sum(A_Internal)\
+                + 0.5 * (np.sum(A_u) + np.sum(A_d) + np.sum(A_l) + np.sum(A_r))\
+                + 0.25 * (A_ul + A_ur + A_dl + A_dr))
+
     
     
+
+def circ_fraun(aperture_rad, rcoord, zdist, wavelength): 
+    """
+    Analytical Fraunhofer approximation for circular aperture
+    implements circular aperture fraunhofer approximation analytic solution for x-y planes, Goodman exp 4-31 
+    inputs: 
+    aperture_rad = aperture radius in m
+    rcoord = radius coordinate 2D map (x-y plane)
+    zdist = distance to screen in m 
+    wavelength = wavelength in m 
+    
+    returns intensity 2D array (x-y)
+    """
+    import numpy as np
+    from scipy.special import j1
+    ###use like jv(v,z) where v is the order and z the dist in z 
+    
+    area = np.pi * aperture_rad**2
+    
+    k = 2* np.pi/wavelength
+    argument = k*aperture_rad*rcoord/zdist
+    
+    #function 4-31
+    intensity = (area/(wavelength * zdist))**2 * (2*j1( argument)/argument)**2
+    
+    return intensity 
+
+
+
+def circ_zz(aperture_rad, zdist, wavelength):
+    """
+    implements circular aperture fresnel approximation analytic solution for x-z planes, Sheppard  1992, exp28 
+    ###This function is the axial intensity for a circular aperture following 1992 Sheppard paper, exp (28) 
+    inputs: 
+    aperture_rad = aperture radius in m
+    zdist = distance to screen in m 
+    wavelength = wavelength in m 
+    
+    returns intensity 2D array (x-y)
+    
+    """
+    import numpy as np 
+    
+    k = 2*np.pi /wavelength 
+    
+    izz1 = (1 + np.sqrt(1 + aperture_rad**2 /zdist**2))
+    izz2 = 1 + aperture_rad**2/(2*zdist**2)
+    izz3 = (k * aperture_rad**2/(2 *zdist))/(np.sqrt(1+aperture_rad**2/zdist**2)+1)
+    itot = 0.25*(izz1/izz2) * np.sin(izz3)**2
+    
+    return itot
+
+
+def circ_zz24(aperture_rad, zdist, wavelength):
+    """
+    implements circular aperture fresnel approximation analytic solution for x-z planes, Sheppard  1992 , exp24
+    ###This function is the axial intensity for a circular aperture following 1992 Sheppard paper, exp (24) 
+    inputs: 
+    aperture_rad = aperture radius in m
+    zdist = distance to screen in m 
+    wavelength = wavelength in m 
+    
+    returns intensity 2D array (x-y)
+    
+    """
+    import numpy as np 
+    
+    k = 2*np.pi /wavelength 
+    
+    izz1 = 1/(1+aperture_rad**2/zdist**2)
+    izz2 = 2/np.sqrt(1+aperture_rad**2/zdist**2)
+    izz3 = (k * aperture_rad**2/(zdist)) /(np.sqrt(1+aperture_rad**2/zdist**2)+1)
+    itot = 0.25*(1+izz1-izz2* np.cos(izz3))
+    
+    return itot
+    
+    
+    
+def rect_fraun(sizex, sizey, xcoord, ycoord, zd, wl): 
+    """
+    Analytical Fraunhofer approximation for rectangular aperture
+    implements rectangular aperture fraunhofer approximation analytic solution for x-y planes, Goodman exp 4-28
+    inputs: 
+    aperture_rad = aperture radius in m
+    rcoord = radius coordinate 2D map (x-y plane)
+    zdist = distance to screen in m 
+    wavelength = wavelength in m 
+    
+    returns intensity 2D array (x-y)
+    """
+    from scipy.special import sinc 
+    import numpy as np 
+    
+    #sinc uses sin(pi*x)/(pi*x) with x as the argument 
+    
+    area = sizex*sizey
+    
+    k= 2* np.pi/wl
+    
+    intensity = (area/(wl*zd))**2 * sinc(sizex*xcoord/(wl*zd))**2 * sinc(sizey * ycoord/(wl* zd))**2
+    
+    return intensity 
+    
+
+
 def Fresnel_num(width, wavelength, zdist):
     """
-    Following the Goodman pag 85
-    width is half the size of the aperture
+    Calculation of Fresnel number, Goodman pag 85
+    inputs:
+    width = size of the aperture in m 
+    wavelength = wavelength of the aperture in m 
+    zdist = distance to the screen in m 
     
-    The Fresnel approximation is justified for large fresnel numbers 
+    returns Fresnel number 
     """
     NF = width**2 / (wavelength * zdist)
     return NF 
     
 def Fraunhofer_criterion(aperturesiz, wavelength): 
+    """
+    Calculation of "Fraunhofer distance" , Goodman exp 4-27  
+    inputs:
+    aperturesiz = size of the aperture in m 
+    wavelength = wavelength of the aperture in m 
+    
+    returns Fraunhofer distance 
+    """
     zfraun = 2 * aperturesiz**2 / wavelength 
     
     return zfraun 

@@ -7,4 +7,3 @@ It provides implementation of scalar propagation algorithms for different purpos
 * Fresnel Approximation 
 * Fraunhofer Approximation 
 
-Utilities are provided with amplitude and phase masks.
